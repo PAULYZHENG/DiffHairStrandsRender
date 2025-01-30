@@ -3,6 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-./build/
-./dist/
-./hair_render.egg-info/
+./build
+./dist
+./hair_render.egg-info
