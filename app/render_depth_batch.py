@@ -27,12 +27,11 @@ def render_depth(split):
     output_dir = './data/render/RENDER_DEPTH_SOFT_10k/'#
 
     # create renderer with SoftRas
-    # rasterizer = SoftRasterizer(image_size=512, near=-100, far=100, sigma_val=1e-5)
     rasterizer = SoftRasterizer(image_size=512, near=-100, far=100, sigma_val=1e-6, gamma_val=1e-6, eps=1e-6)
 
     hair_path = hair_dir + split.split('/')[0] + '.ply'
     camera_path = camera_dir + split[:-3] + 'npy'
-    output_path = output_dir + split[:-3] + 'png' #.split('/')[0] + '_' + split.split('/')[1][:-4] + '.png'
+    output_path = output_dir + split[:-3] + 'png'
 
     os.makedirs(output_dir + split.split('/')[0], exist_ok=True)
     if os.path.exists(output_path):
@@ -55,16 +54,8 @@ def render_depth(split):
 if __name__ == '__main__':
     print('render hair depth 10k 3/3')
     mp.set_start_method('spawn')
-    # mode = 'train'
-    # split_file = '../Hair-PIFu-norm/data/render_'+mode+'_split_00101_bust.json'
-    # with open(split_file,'r') as f:
-    #     splits = json.load(f)
-    splits = ['strands00075_00367_00101/5_3_00.npy', 'strands00075_00367_00101/330_12_00.npy', 'strands00075_00367_00101/350_351_00.npy']
 
-    # splits = splits[:10]
-    # splits = splits[0::3]
-    # splits = splits[1::3]
-    # splits = splits[2::3]
+    splits = ['strands00075_00367_00101/5_3_00.npy', 'strands00075_00367_00101/330_12_00.npy', 'strands00075_00367_00101/350_351_00.npy']
 
     p = mp.Pool(processes=6)
     p.map(render_depth, splits)

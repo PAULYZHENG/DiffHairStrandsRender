@@ -57,7 +57,5 @@ class SoftRasterizer(nn.Module):
 
         if self.anti_aliasing:
             images = F.avg_pool2d(images, kernel_size=2, stride=2)
-
-        # images = torch.flip(images, [2])
         
         return images

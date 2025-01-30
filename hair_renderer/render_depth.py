@@ -14,7 +14,6 @@ class RenderDepth(nn.Module):
         self.hair_path = hair_path
 
         self.body_vertices, self.body_faces, self.num_bodyV = self.load_body()
-        #self.hair_vertices, self.hair_faces, self.num_hairV = self.load_hair()
         self.hair_vertices, self.hair_faces, self.num_hairV, self.hair_lines = self.load_hair_raw()
         self.faces = self.combine_faces().unsqueeze(0)
         
@@ -61,10 +60,6 @@ class RenderDepth(nn.Module):
         hair_faces[num_hairL:, :2] = hair_lines + num_hairV
         hair_faces[num_hairL:, 2] = hair_lines[:,0]
 
-        # hair_faces[num_hairL:, 0] = hair_lines[:,1] + num_hairV
-        # hair_faces[num_hairL:, 1] = hair_lines[:,0] + num_hairV
-        # hair_faces[num_hairL:, 2] = hair_lines[:,0]
-
         hair_vertices = torch.from_numpy(hair_vertices.astype(np.float32)).cuda()
         hair_lines = torch.from_numpy(hair_lines).cuda().long()
         hair_faces = torch.from_numpy(hair_faces.astype(np.int32)).cuda()
@@ -81,9 +76,6 @@ class RenderDepth(nn.Module):
         line_set = o3d.geometry.LineSet(points=o3d.utility.Vector3dVector(np.asarray(vertices)), lines=o3d.utility.Vector2iVector(lines))
         o3d.io.write_line_set(outputpath, line_set)
 
-    # def process_hair_vertices(self, hair_vertices, dis=2e-3):
-    #     hair_vertices_dis = hair_vertices + dis
-    #     return torch.cat((hair_vertices, hair_vertices_dis), 0)
     def process_hair_vertices(self, hair_vertices, dis=2e-3):
         hair_vertices_dis = hair_vertices + dis
         hair_vertices_x = hair_vertices[:,0]
@@ -135,12 +127,6 @@ class RenderDepth(nn.Module):
     def world2uv(self, verts):
         world_to_view_point = torch.from_numpy(self.world_to_view_point.astype(np.float32)).unsqueeze(0).cuda()
         verts = verts.unsqueeze(0)
-
-        # world_mat = world_to_view_point[:,:3,:3]
-        # world_trans = world_to_view_point[:,:3,3:4]
-        
-        #verts = torch.baddbmm(world_trans,world_mat,verts.transpose(1,2)).transpose(1,2)
-
         mat = self.camera[:,:3,:3]
         trans = self.camera[:,:3,3:4]
         #[-1,1]
@@ -169,9 +155,6 @@ class RenderDepth(nn.Module):
         return R
 
     def set_world_view_point(self,deg):
-        '''setting from world to view homo rotation matrix
-        deg: degree to rotation your map
-        '''
         rz = deg / 180. * np.pi
         
         self.world_to_view_point[:3, :3] = self.euler_to_rot_mat(0, rz, 0)
@@ -186,9 +169,6 @@ class RenderDepth(nn.Module):
         return torch.cat((hair_texture,body_texture), 1)
 
     def set_texture(self, verts):
-        '''attribute you want to set when you render,
-        we only need 2d orientation information here
-        '''
         verts[:,0] = -verts[:,0]
         #compute orien
         verts = (verts+1)*self.width/2
@@ -197,14 +177,6 @@ class RenderDepth(nn.Module):
 
         cur_orien = (verts[self.hair_lines[:,1]] - verts[self.hair_lines[:,0]])[:,:2]
         cur_orien = self.normalizer(cur_orien, dim=1)
-        
-        # orien_len = torch.norm(cur_orien.data,p=2,dim=1)
-        # orien_len_ones = torch.ones_like(orien_len).float().cuda()
-        # orien_len = torch.where(orien_len>0.001, orien_len, orien_len_ones)
-        # cur_orien = (cur_orien.T/orien_len).T
-
-        # if torch.any(torch.isnan(cur_orien)):
-        #     print('divide zeros when compute orientation map!')
 
         ambi_y = cur_orien[:,1]<0
         cur_orien[ambi_y,:] = -cur_orien[ambi_y,:]
@@ -226,7 +198,6 @@ class RenderDepth(nn.Module):
     def set_texture_depth(self, verts):
         texture = torch.zeros((verts.shape[0],3))
         texture[:,0] = (verts[:,2] +1.0)/2.0
-        # texture[:,0] = verts[:,2]
         texture[:,1] = texture[:,0] 
         texture[:,2] = texture[:,0] 
 
@@ -255,24 +226,12 @@ class RenderDepth(nn.Module):
 
         #BGR 2 RGB
         hair_orien = hair_orien[:,[2,1,0]]
-        body_texture = np.array([0.5,0.0,0.0]*self.num_bodyV).reshape(self.num_bodyV,3)#[0.5,0.0,0.0]
+        body_texture = np.array([0.5,0.0,0.0]*self.num_bodyV).reshape(self.num_bodyV,3)
         body_texture = torch.from_numpy(body_texture.astype(np.float32)).cuda() 
 
         return torch.cat((hair_orien, hair_orien, body_texture), 0).unsqueeze(0)
 
-    # def forward(self):
-    #     hair_vertices = self.world2uv(self.hair_vertices)
-    #     body_vertices = self.world2uv(self.body_vertices)
-
-    #     vertices = torch.cat((hair_vertices,body_vertices), 1)
-
-    #     textures = self.set_texture_mask()
-
-    #     return Mesh(vertices, self.faces, textures, 1, 'vertex')
-
     def forward(self):
-        # hair_vertices = self.process_hair_vertices(self.hair_vertices, dis=1e-3)
-        # hair_vertices = self.world2uv(hair_vertices)
         hair_vertices = self.world2uv(self.hair_vertices)
         hair_vertices = self.process_hair_vertices(hair_vertices, dis=1e-3)
         body_vertices = self.world2uv(self.body_vertices)
@@ -285,10 +244,5 @@ class RenderDepth(nn.Module):
 
         #mirror
         vertices[:,:,2] = -vertices[:,:,2]
-        #vertices[:,:,1] = -vertices[:,:,1]
-
-        # mesh = trimesh.Trimesh(vertices.detach().cpu().numpy()[0],self.faces.detach().cpu().numpy()[0],process=False)
-        # with open('./results/save.obj', "w") as fout:
-        #     mesh.export(fout, file_type="obj") 
 
         return Mesh(vertices, self.faces, textures, 1, 'vertex')
